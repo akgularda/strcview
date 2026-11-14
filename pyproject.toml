@@ -1,0 +1,37 @@
+[project]
+name = "strcview"
+version = "0.3.0"
+description = "sTRCview: Bibliometric and Systematic Review Screening Tool with Laya and LLM"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "streamlit>=1.67.0",
+    "pandas>=2.2.0",
+    "numpy>=2.0,<3",
+    "openpyxl>=3.1.2",
+    "plotly>=5.20.0",
+    "requests>=2.31.0",
+    "pydantic>=2.7.0",
+    "networkx>=3.2",
+    "scikit-learn>=1.4",
+    "xlrd>=2.0.1",
+    "laya>=0.4.30,<0.5",
+]
+
+[project.optional-dependencies]
+desktop = ["pywebview==6.2.1", "pyinstaller>=6.18,<7"]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+"src.ui" = ["styles.css"]

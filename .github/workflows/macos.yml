@@ -1,0 +1,70 @@
+name: macOS package
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      OMP_NUM_THREADS: '3'
+      PYTORCH_ENABLE_MPS_FALLBACK: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          architecture: arm64
+      - name: Install build dependencies
+        run: |
+          python -m pip install 'torch==2.9.1' 'transformers==5.22.2' 'laya==0.4.30' 'vegaml==0.16.1' 'streamlit==1.67.0' '.[desktop,dev]'
+          python -m pip check
+      - name: Test and build
+        run: |
+          python -m pytest tests -q
+          python -m PyInstaller --noconfirm desktop.spec
+          /usr/bin/lipo -verify_arch arm64 dist/sTRCview.app/Contents/MacOS/sTRCview
+          /usr/bin/codesign --verify --deep --strict dist/sTRCview.app
+      - name: Check bundled Laya and launch the app
+        run: |
+          export HF_HOME="$RUNNER_TEMP/laya-cache"
+          dist/sTRCview.app/Contents/MacOS/sTRCview --check-laya
+          open -n dist/sTRCview.app
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import time
+          from urllib.request import build_opener, ProxyHandler
+
+          log = Path.home() / 'Library/Application Support/sTRCview/server.log'
+          opener = build_opener(ProxyHandler({}))
+          for _ in range(60):
+              body = log.read_text(errors='replace') if log.exists() else ''
+              for url in re.findall(r'http://127\.0\.0\.1:\d+', body):
+                  try:
+                      with opener.open(url + '/_stcore/health', timeout=1) as response:
+                          if response.read() == b'ok':
+                              raise SystemExit(0)
+                  except OSError:
+                      pass
+              time.sleep(1)
+          raise SystemExit(f'Desktop app did not start\n{body}')
+          PY
+      - name: Create and test archive
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent dist/sTRCview.app dist/sTRCview-macos-arm64.zip
+          mkdir "$RUNNER_TEMP/extracted"
+          ditto -x -k dist/sTRCview-macos-arm64.zip "$RUNNER_TEMP/extracted"
+          /usr/bin/codesign --verify --deep --strict "$RUNNER_TEMP/extracted/sTRCview.app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sTRCview-macos-arm64
+          path: dist/sTRCview-macos-arm64.zip
+          compression-level: 0
+          if-no-files-found: error
