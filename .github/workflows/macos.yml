@@ -2,8 +2,6 @@ name: macOS package
 
 on:
   workflow_dispatch:
-  push:
-    tags: ['v*']
 
 permissions:
   contents: read
@@ -29,7 +27,7 @@ jobs:
         run: |
           python -m pytest tests -q
           python -m PyInstaller --noconfirm desktop.spec
-          /usr/bin/lipo -verify_arch arm64 dist/sTRCview.app/Contents/MacOS/sTRCview
+          /usr/bin/lipo dist/sTRCview.app/Contents/MacOS/sTRCview -verify_arch arm64
           /usr/bin/codesign --verify --deep --strict dist/sTRCview.app
       - name: Check bundled Laya and launch the app
         run: |
